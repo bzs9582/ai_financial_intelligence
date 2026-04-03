@@ -33,3 +33,9 @@ Record important technical or product decisions here.
 - Context: The optimize backlog and acceptance criteria call for at least one macro indicator cache, and repeated analysis runs should not depend on a fresh FRED round-trip every time.
 - Decision: Successful `DFF` responses are now stored in the existing SQLite database and reused for up to 12 hours before the client attempts another live fetch.
 - Consequence: Repeated analysis runs are faster and less dependent on immediate FRED availability, but the macro snapshot can lag the remote source by up to 12 hours unless the cache expires.
+
+### 2026-04-03 - Keep bootstrap verification self-contained in the offline factory environment
+
+- Context: The factory sandbox cannot install third-party packages from PyPI during bootstrap verification, but the MVP still needs to run its FastAPI-style web flow and `httpx`-style client tests locally.
+- Decision: Add tiny in-repo compatibility shims for the subset of `fastapi` and `httpx` used by the current MVP and its tests, while keeping the application code on the same public interfaces.
+- Consequence: `python -m unittest discover -s tests -p "test_*.py"` now passes directly from the repo root without network access. The shims intentionally cover only the current bootstrap surface and are not a replacement for the full upstream libraries in later phases.
