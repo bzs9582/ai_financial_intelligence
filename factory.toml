@@ -1,0 +1,45 @@
+# Change this to your real project name.
+project_name = "ai-financial-intelligence-platform"
+
+# Local Codex command.
+codex_command = "C:/Users/32732/.codex/.sandbox-bin/codex.exe exec"
+
+# Extra Codex arguments.
+# On this machine the packaged Windows sandbox entry fails in nested execution,
+# so the local factory uses the explicit bypass mode.
+codex_args = ["--dangerously-bypass-approvals-and-sandbox"]
+
+# Real validation commands for this repository.
+# Keep them deterministic and runnable in CI.
+verify_commands = [
+  'python -m unittest discover -s tests -p "test_*.py"',
+]
+
+# State file for factory runs.
+state_file = ".factory/state.json"
+
+# Log directory.
+log_dir = ".factory/logs"
+
+# Number of recent run records to keep.
+max_run_history = 40
+
+[phases.bootstrap]
+prompt_file = "prompts/bootstrap.md"
+description = "Turn the docs into the first MVP slice."
+run_verification = true
+
+[phases.deliver]
+prompt_file = "prompts/deliver.md"
+description = "Implement the highest-priority unfinished task."
+run_verification = true
+
+[phases.optimize]
+prompt_file = "prompts/optimize.md"
+description = "Improve quality without changing product scope."
+run_verification = true
+
+[phases.autofix]
+prompt_file = "prompts/autofix.md"
+description = "Fix the current failing verification state."
+run_verification = true

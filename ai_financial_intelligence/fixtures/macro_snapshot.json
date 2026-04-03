@@ -1,0 +1,10 @@
+{
+  "series": "DFF",
+  "name": "Effective Federal Funds Rate",
+  "latest_value": 5.33,
+  "previous_value": 5.33,
+  "unit": "%",
+  "trend": "flat",
+  "updated_at": "2026-03-31",
+  "source": "fixture-fred"
+}
