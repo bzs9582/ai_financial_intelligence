@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 import tempfile
 import unittest
@@ -295,6 +296,50 @@ class AnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual("cache", result["report"]["source_statuses"][1]["mode"])
         self.assertIn("local cache", result["report"]["source_statuses"][1]["detail"].lower())
+
+    async def test_run_analysis_collects_independent_sources_concurrently(self) -> None:
+        service = AnalysisService(build_settings(self.temp_dir, mock_mode=False))
+        market_payload = BinanceMarketClient(
+            build_settings(self.temp_dir, mock_mode=True)
+        ).fixture("BTCUSDT", "4h")
+        macro_payload = service.macro_client.fixture()
+        event_payload = service.event_client.fixture()
+        release = asyncio.Event()
+        started = 0
+
+        async def wait_for_release(payload: object) -> object:
+            nonlocal started
+            started += 1
+            if started == 3:
+                release.set()
+            await release.wait()
+            return payload
+
+        async def fetch_market(asset: str, timeframe: str) -> dict[str, object]:
+            self.assertEqual("BTCUSDT", asset)
+            self.assertEqual("4h", timeframe)
+            return await wait_for_release({**market_payload, "source": "live-binance"})
+
+        async def fetch_macro() -> dict[str, object]:
+            return await wait_for_release({**macro_payload, "source": "live-fred"})
+
+        async def fetch_events() -> list[dict[str, object]]:
+            return await wait_for_release(event_payload)
+
+        service.market_client.fetch_live = fetch_market
+        service.macro_client.fetch_live = fetch_macro
+        service.event_client.fetch_live = fetch_events
+
+        result = await asyncio.wait_for(
+            service.run_analysis("BTCUSDT", "4h"),
+            timeout=0.2,
+        )
+
+        self.assertEqual(3, started)
+        self.assertEqual(
+            ["live", "live", "live"],
+            [status["mode"] for status in result["report"]["source_statuses"]],
+        )
 
 
 if __name__ == "__main__":

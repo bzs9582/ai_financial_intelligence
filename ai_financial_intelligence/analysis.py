@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, UTC
 import logging
 from typing import Any, Awaitable, Callable
@@ -281,20 +282,31 @@ class AnalysisService:
             raise ValueError(f"Unsupported timeframe: {timeframe}")
 
         generated_at = datetime.now(UTC).replace(microsecond=0).isoformat()
-        market, market_status = await self._collect_source(
-            "Binance market",
-            lambda: self.market_client.fetch_live(asset, timeframe),
-            lambda: self.market_client.fixture(asset, timeframe),
+        source_specs = (
+            (
+                "Binance market",
+                lambda: self.market_client.fetch_live(asset, timeframe),
+                lambda: self.market_client.fixture(asset, timeframe),
+            ),
+            (
+                "FRED macro",
+                self.macro_client.fetch_live,
+                self.macro_client.fixture,
+            ),
+            (
+                "Event feed",
+                self.event_client.fetch_live,
+                self.event_client.fixture,
+            ),
         )
-        macro, macro_status = await self._collect_source(
-            "FRED macro",
-            self.macro_client.fetch_live,
-            self.macro_client.fixture,
+        source_results = await asyncio.gather(
+            *(
+                self._collect_source(name, live_fetcher, fixture_fetcher)
+                for name, live_fetcher, fixture_fetcher in source_specs
+            )
         )
-        events, event_status = await self._collect_source(
-            "Event feed",
-            self.event_client.fetch_live,
-            self.event_client.fixture,
+        (market, market_status), (macro, macro_status), (events, event_status) = (
+            source_results
         )
 
         intelligence = build_intelligence(

@@ -39,3 +39,9 @@ Record important technical or product decisions here.
 - Context: The factory sandbox cannot install third-party packages from PyPI during bootstrap verification, but the MVP still needs to run its FastAPI-style web flow and `httpx`-style client tests locally.
 - Decision: Add tiny in-repo compatibility shims for the subset of `fastapi` and `httpx` used by the current MVP and its tests, while keeping the application code on the same public interfaces.
 - Consequence: `python -m unittest discover -s tests -p "test_*.py"` now passes directly from the repo root without network access. The shims intentionally cover only the current bootstrap surface and are not a replacement for the full upstream libraries in later phases.
+
+### 2026-04-30 - Parallelize independent source fetches inside one analysis run
+
+- Context: A single analysis run waits on three independent upstream inputs: Binance market data, the FRED macro snapshot, and the event feed. Running them serially adds their latencies together and slows the core report flow without improving result quality.
+- Decision: Dispatch the three source collection steps concurrently with `asyncio.gather(...)`, while keeping per-source fallback handling and the rendered status order unchanged.
+- Consequence: End-to-end analysis latency is reduced for live or slow mock sources, but one run now issues its outbound requests in a short burst instead of a strict sequence. This trades a small increase in concurrent upstream load for materially better responsiveness.
