@@ -7,6 +7,11 @@
   "high_price": 68950.0,
   "low_price": 66320.0,
   "open_interest": 9215000000.0,
+  "mark_price": 68432.8,
+  "index_price": 68408.4,
+  "basis_pct": 0.0357,
+  "funding_rate": 0.01,
+  "next_funding_time": "1712116800000",
   "source": "fixture-binance",
   "candles": [
     {"open_time": 1711944000000, "open": 66220.0, "high": 66690.0, "low": 65940.0, "close": 66510.0, "volume": 1140.0},

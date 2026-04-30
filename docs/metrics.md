@@ -5,12 +5,12 @@
 ## Delivery
 
 - 从任务开始到草稿 PR 的平均时间：
-- 自动化成功运行次数：2
+- 自动化成功运行次数：3
 - 自动化失败运行次数：2
 
 ## Quality
 
-- 测试通过率：100%（本地 `python -m unittest discover -s tests -p "test_*.py"`，25/25）
+- 测试通过率：100%（本地 `python -m unittest discover -s tests -p "test_*.py"`，26/26）
 - 覆盖率：
 - 阻塞级问题数量：0
 
@@ -30,3 +30,4 @@
 - 2026-04-03：新增 3 条事件源回归测试，覆盖默认 CoinDesk RSS-to-JSON 端点归一化、自定义 `ai-fi-event-feed/v1` 契约解析，以及默认远程事件源配置。
 - 2026-04-03：新增 5 条更细粒度单元测试，覆盖指标模块的空输入默认值、精确 SMA/动量/波动率分支、异常零值行情保护，以及报告概率分配在强多头与高风险场景下的边界分布；本地全量验证提升至 25/25，耗时 0.434s。
 - 2026-04-03：补充最小 `fastapi` / `httpx` 本地兼容层，解除离线工厂环境对 PyPI 安装的阻塞；当前本地全量验证保持 25/25，通过耗时 0.120s。
+- 2026-04-30：扩展 Binance 衍生品快照字段，补充 `mark_price`、`index_price`、`basis_pct`、`funding_rate` 与 `next_funding_time`，并扩展默认资产选项至 `BNBUSDT`、`XRPUSDT`、`DOGEUSDT`；增强现有客户端/UI 断言并新增 1 条资产支持回归测试，本地全量验证提升至 26/26，通过耗时 0.135s。

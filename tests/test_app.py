@@ -40,6 +40,7 @@ class AppRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("开始分析", response.text)
         self.assertIn("尚无分析记录", response.text)
         self.assertIn("BTCUSDT", response.text)
+        self.assertIn("DOGEUSDT", response.text)
 
     async def test_post_analyze_returns_structured_report_page(self) -> None:
         transport = httpx.ASGITransport(app=self.app)
