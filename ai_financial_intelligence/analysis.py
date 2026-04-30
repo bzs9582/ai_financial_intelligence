@@ -17,7 +17,14 @@ from .storage import ReportStore
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_ASSETS = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+SUPPORTED_ASSETS = (
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+)
 SUPPORTED_TIMEFRAMES = ("4h", "1d")
 DISCLAIMER = "仅供研究参考，不构成投资建议。"
 
@@ -211,6 +218,8 @@ def build_report(intelligence: dict[str, Any]) -> dict[str, Any]:
             f"Momentum: {indicators['momentum_pct']:+.2f}%",
             f"Macro: {macro['trend']}",
             f"Events: {event_summary['bias']}",
+            f"Funding: {market['funding_rate']:+.4f}%",
+            f"Basis: {market['basis_pct']:+.3f}%",
         ],
         "peter": {
             "stance": peter_stance,
@@ -230,7 +239,9 @@ def build_report(intelligence: dict[str, Any]) -> dict[str, Any]:
             "stance": pivot_stance,
             "summary": (
                 f"Pivot flags {pivot_stance} structure with open interest at {market['open_interest']:.0f} "
-                f"and volatility regime {indicators['volatility_regime']}."
+                f"while mark/index basis sits at {market['basis_pct']:+.3f}% and "
+                f"funding runs {market['funding_rate']:+.4f}% into the next reset at "
+                f"{market['next_funding_time'] or 'n/a'}."
             ),
         },
         "reality_check": {

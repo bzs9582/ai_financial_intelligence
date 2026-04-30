@@ -332,9 +332,24 @@ class BinanceMarketClient:
                     url="https://fapi.binance.com/fapi/v1/openInterest",
                 ) from exc
 
+            try:
+                premium_index_response = await client.get(
+                    "https://fapi.binance.com/fapi/v1/premiumIndex",
+                    params={"symbol": asset},
+                )
+                premium_index_response.raise_for_status()
+            except httpx.HTTPError as exc:
+                raise self._build_request_error(
+                    exc=exc,
+                    asset=asset,
+                    timeframe=timeframe,
+                    url="https://fapi.binance.com/fapi/v1/premiumIndex",
+                ) from exc
+
         ticker = ticker_response.json()
         candles = candles_response.json()
         open_interest = open_interest_response.json()
+        premium_index = premium_index_response.json()
 
         normalized_candles: list[dict[str, Any]] = []
         for candle in candles:
@@ -349,6 +364,9 @@ class BinanceMarketClient:
                 }
             )
 
+        mark_price = _to_float(premium_index.get("markPrice"))
+        index_price = _to_float(premium_index.get("indexPrice"))
+
         return {
             "symbol": asset,
             "timeframe": timeframe,
@@ -358,6 +376,13 @@ class BinanceMarketClient:
             "high_price": _to_float(ticker.get("highPrice")),
             "low_price": _to_float(ticker.get("lowPrice")),
             "open_interest": _to_float(open_interest.get("openInterest")),
+            "mark_price": mark_price,
+            "index_price": index_price,
+            "basis_pct": _to_float(
+                ((mark_price - index_price) / index_price) * 100 if index_price else 0.0
+            ),
+            "funding_rate": _to_float(premium_index.get("lastFundingRate")) * 100,
+            "next_funding_time": str(premium_index.get("nextFundingTime") or ""),
             "candles": normalized_candles,
             "source": "live-binance",
         }

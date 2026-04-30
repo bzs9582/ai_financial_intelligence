@@ -95,6 +95,15 @@ class RecordingAsyncClient:
                     [2, "68350", "68950", "68220", "68420.5", "1399"],
                 ]
             )
+        if "premiumIndex" in url:
+            return DummyResponse(
+                {
+                    "markPrice": "68428.0",
+                    "indexPrice": "68420.5",
+                    "lastFundingRate": "0.000125",
+                    "nextFundingTime": "1712116800000",
+                }
+            )
         return DummyResponse({"openInterest": "9215000000"})
 
 
@@ -191,6 +200,15 @@ class BinanceClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("4h", payload["timeframe"])
         self.assertEqual(2, len(payload["candles"]))
         self.assertEqual(68420.5, payload["last_price"])
+        self.assertEqual(68428.0, payload["mark_price"])
+        self.assertEqual(68420.5, payload["index_price"])
+        self.assertEqual(0.0125, payload["funding_rate"])
+        self.assertAlmostEqual(0.01096, payload["basis_pct"], places=5)
+        self.assertEqual("1712116800000", payload["next_funding_time"])
+        self.assertEqual(
+            "https://fapi.binance.com/fapi/v1/premiumIndex",
+            RecordingAsyncClient.calls[3][0],
+        )
 
     async def test_fetch_live_failure_includes_proxy_and_endpoint_context(self) -> None:
         temp_dir = tempfile.TemporaryDirectory()

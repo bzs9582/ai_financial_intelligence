@@ -38,6 +38,9 @@ def build_report_intelligence(
             "change_pct_24h": 2.5,
             "quote_volume": 1_250_000_000.0,
             "open_interest": 9_200_000_000.0,
+            "funding_rate": 0.01,
+            "basis_pct": 0.035,
+            "next_funding_time": "1712116800000",
             **(market or {}),
         },
         "macro": {
@@ -153,6 +156,8 @@ class ReportProbabilityTests(unittest.TestCase):
         self.assertEqual("bullish", report["venturus"]["stance"])
         self.assertEqual("bullish", report["pivot"]["stance"])
         self.assertEqual("stable", report["reality_check"]["stance"])
+        self.assertIn("Funding: +0.0100%", report["key_signals"])
+        self.assertIn("mark/index basis", report["pivot"]["summary"])
 
     def test_build_report_shifts_probability_toward_bearish_case_when_risk_rises(self) -> None:
         report = build_report(
@@ -227,6 +232,13 @@ class AnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(latest)
         self.assertEqual(report["generated_at"], latest["report"]["generated_at"])
         self.assertEqual("fixture", report["source_statuses"][0]["mode"])
+
+    async def test_run_analysis_accepts_added_supported_asset(self) -> None:
+        service = AnalysisService(build_settings(self.temp_dir, mock_mode=True))
+
+        result = await service.run_analysis("XRPUSDT", "4h")
+
+        self.assertEqual("XRPUSDT", result["report"]["asset"])
 
     async def test_live_failures_fall_back_to_fixtures_and_emit_warnings(self) -> None:
         service = AnalysisService(build_settings(self.temp_dir, mock_mode=False))
