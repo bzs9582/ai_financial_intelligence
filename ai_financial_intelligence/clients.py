@@ -63,6 +63,19 @@ def _to_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _to_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _percent_difference(reference: float, current: float) -> float:
+    if reference == 0:
+        return 0.0
+    return ((current - reference) / reference) * 100
+
+
 def _clean_text(value: Any) -> str:
     text = re.sub(r"<[^>]+>", " ", str(value or ""))
     return " ".join(unescape(text).split())
@@ -332,9 +345,24 @@ class BinanceMarketClient:
                     url="https://fapi.binance.com/fapi/v1/openInterest",
                 ) from exc
 
+            try:
+                premium_index_response = await client.get(
+                    "https://fapi.binance.com/fapi/v1/premiumIndex",
+                    params={"symbol": asset},
+                )
+                premium_index_response.raise_for_status()
+            except httpx.HTTPError as exc:
+                raise self._build_request_error(
+                    exc=exc,
+                    asset=asset,
+                    timeframe=timeframe,
+                    url="https://fapi.binance.com/fapi/v1/premiumIndex",
+                ) from exc
+
         ticker = ticker_response.json()
         candles = candles_response.json()
         open_interest = open_interest_response.json()
+        premium_index = premium_index_response.json()
 
         normalized_candles: list[dict[str, Any]] = []
         for candle in candles:
@@ -349,6 +377,18 @@ class BinanceMarketClient:
                 }
             )
 
+        open_interest_value = _to_float(open_interest.get("openInterest"))
+        mark_price = _to_float(
+            premium_index.get("markPrice"),
+            default=_to_float(ticker.get("lastPrice")),
+        )
+        index_price = _to_float(
+            premium_index.get("indexPrice"),
+            default=mark_price,
+        )
+        funding_rate = _to_float(premium_index.get("lastFundingRate"))
+        basis_pct = _percent_difference(index_price, mark_price)
+
         return {
             "symbol": asset,
             "timeframe": timeframe,
@@ -357,7 +397,18 @@ class BinanceMarketClient:
             "quote_volume": _to_float(ticker.get("quoteVolume")),
             "high_price": _to_float(ticker.get("highPrice")),
             "low_price": _to_float(ticker.get("lowPrice")),
-            "open_interest": _to_float(open_interest.get("openInterest")),
+            "open_interest": open_interest_value,
+            "mark_price": mark_price,
+            "index_price": index_price,
+            "estimated_settle_price": _to_float(
+                premium_index.get("estimatedSettlePrice"),
+                default=mark_price,
+            ),
+            "funding_rate": funding_rate,
+            "funding_rate_pct": round(funding_rate * 100, 4),
+            "basis_pct": round(basis_pct, 4),
+            "next_funding_time": _to_int(premium_index.get("nextFundingTime")),
+            "open_interest_notional": round(open_interest_value * mark_price, 2),
             "candles": normalized_candles,
             "source": "live-binance",
         }

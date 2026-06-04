@@ -38,6 +38,14 @@ def build_report_intelligence(
             "change_pct_24h": 2.5,
             "quote_volume": 1_250_000_000.0,
             "open_interest": 9_200_000_000.0,
+            "mark_price": 102.1,
+            "index_price": 101.7,
+            "estimated_settle_price": 102.0,
+            "funding_rate": 0.0002,
+            "funding_rate_pct": 0.02,
+            "basis_pct": 0.39,
+            "next_funding_time": 1712131200000,
+            "open_interest_notional": 939320000000.0,
             **(market or {}),
         },
         "macro": {
@@ -153,6 +161,10 @@ class ReportProbabilityTests(unittest.TestCase):
         self.assertEqual("bullish", report["venturus"]["stance"])
         self.assertEqual("bullish", report["pivot"]["stance"])
         self.assertEqual("stable", report["reality_check"]["stance"])
+        self.assertIn("Funding: +0.0200%", report["key_signals"])
+        self.assertIn("Basis: +0.3900%", report["key_signals"])
+        self.assertIn("mark/index 102.10/101.70", report["pivot"]["summary"])
+        self.assertIn("funding +0.0200%", report["pivot"]["summary"])
 
     def test_build_report_shifts_probability_toward_bearish_case_when_risk_rises(self) -> None:
         report = build_report(
@@ -227,6 +239,8 @@ class AnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(latest)
         self.assertEqual(report["generated_at"], latest["report"]["generated_at"])
         self.assertEqual("fixture", report["source_statuses"][0]["mode"])
+        self.assertIn("Funding:", report["key_signals"][2])
+        self.assertIn("Basis:", report["key_signals"][3])
 
     async def test_live_failures_fall_back_to_fixtures_and_emit_warnings(self) -> None:
         service = AnalysisService(build_settings(self.temp_dir, mock_mode=False))
@@ -295,6 +309,14 @@ class AnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual("cache", result["report"]["source_statuses"][1]["mode"])
         self.assertIn("local cache", result["report"]["source_statuses"][1]["detail"].lower())
+
+    async def test_run_analysis_accepts_expanded_supported_asset_list(self) -> None:
+        service = AnalysisService(build_settings(self.temp_dir, mock_mode=True))
+
+        result = await service.run_analysis("ADAUSDT", "1d")
+
+        self.assertEqual("ADAUSDT", result["report"]["asset"])
+        self.assertEqual("1d", result["report"]["timeframe"])
 
 
 if __name__ == "__main__":

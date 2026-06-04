@@ -40,6 +40,9 @@ class AppRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("开始分析", response.text)
         self.assertIn("尚无分析记录", response.text)
         self.assertIn("BTCUSDT", response.text)
+        self.assertIn("BNBUSDT", response.text)
+        self.assertIn("XRPUSDT", response.text)
+        self.assertIn("ADAUSDT", response.text)
 
     async def test_post_analyze_returns_structured_report_page(self) -> None:
         transport = httpx.ASGITransport(app=self.app)
@@ -66,6 +69,22 @@ class AppRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("仅供研究参考，不构成投资建议", response.text)
         self.assertIn("Recent Analysis", follow_up.text)
         self.assertIn("BTCUSDT / 4h", follow_up.text)
+
+    async def test_post_analyze_supports_new_default_asset_options(self) -> None:
+        transport = httpx.ASGITransport(app=self.app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            response = await client.post(
+                "/analyze",
+                data={"asset": "ADAUSDT", "timeframe": "1d"},
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertIn("ADAUSDT / 1d", response.text)
+        self.assertIn("Funding:", response.text)
+        self.assertIn("Basis:", response.text)
 
 
 if __name__ == "__main__":

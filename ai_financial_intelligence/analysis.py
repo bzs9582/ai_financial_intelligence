@@ -17,13 +17,28 @@ from .storage import ReportStore
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_ASSETS = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+SUPPORTED_ASSETS = (
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "XRPUSDT",
+    "ADAUSDT",
+)
 SUPPORTED_TIMEFRAMES = ("4h", "1d")
 DISCLAIMER = "仅供研究参考，不构成投资建议。"
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
+
+
+def _market_float(market: dict[str, Any], key: str) -> float:
+    value = market.get(key, 0.0)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _event_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -81,9 +96,12 @@ def build_intelligence(
 ) -> dict[str, Any]:
     indicators = calculate_market_indicators(market)
     event_summary = _event_summary(events)
+    funding_rate_pct = _market_float(market, "funding_rate_pct")
+    basis_pct = _market_float(market, "basis_pct")
     snapshot_summary = (
         f"{asset} {timeframe} price {market['last_price']:.2f}, "
         f"24h {market['change_pct_24h']:+.2f}%, "
+        f"funding {funding_rate_pct:+.4f}%, basis {basis_pct:+.4f}%, "
         f"{macro['name']} {macro['latest_value']:.2f}{macro['unit']} "
         f"({macro['trend']}), events bias {event_summary['bias']}."
     )
@@ -108,6 +126,11 @@ def build_report(intelligence: dict[str, Any]) -> dict[str, Any]:
     indicators = intelligence["indicators"]
     event_summary = intelligence["event_summary"]
     source_statuses = intelligence["source_statuses"]
+    funding_rate_pct = _market_float(market, "funding_rate_pct")
+    basis_pct = _market_float(market, "basis_pct")
+    open_interest_notional = _market_float(market, "open_interest_notional")
+    mark_price = _market_float(market, "mark_price")
+    index_price = _market_float(market, "index_price")
 
     market_score = 0
     if indicators["trend"] == "bullish":
@@ -176,10 +199,12 @@ def build_report(intelligence: dict[str, Any]) -> dict[str, Any]:
     bull_case = [
         f"Price is {indicators['price_vs_slow_sma_pct']:+.2f}% versus the slow average, keeping the short-term trend constructive.",
         f"24h change is {market['change_pct_24h']:+.2f}% with quote volume near {market['quote_volume']:.0f}.",
+        f"Perpetual funding is {funding_rate_pct:+.4f}% with basis at {basis_pct:+.4f}%, showing whether futures traders are paying up.",
         f"Macro backdrop is {macro['trend']} on {macro['name']} and event bias is {event_summary['bias']}.",
     ]
     bear_case = [
         f"Average trading range is {indicators['average_range_pct']:.2f}%, so a volatility squeeze can break lower quickly.",
+        f"Funding at {funding_rate_pct:+.4f}% and basis at {basis_pct:+.4f}% can unwind fast if positioning gets one-sided.",
         f"Negative events count is {event_summary['negative_count']}, which can override a short-lived technical bounce.",
         f"Any loss of the slow average near {indicators['sma_slow']:.2f} weakens the market structure immediately.",
     ]
@@ -209,6 +234,8 @@ def build_report(intelligence: dict[str, Any]) -> dict[str, Any]:
         "key_signals": [
             f"Trend: {indicators['trend']}",
             f"Momentum: {indicators['momentum_pct']:+.2f}%",
+            f"Funding: {funding_rate_pct:+.4f}%",
+            f"Basis: {basis_pct:+.4f}%",
             f"Macro: {macro['trend']}",
             f"Events: {event_summary['bias']}",
         ],
@@ -230,7 +257,8 @@ def build_report(intelligence: dict[str, Any]) -> dict[str, Any]:
             "stance": pivot_stance,
             "summary": (
                 f"Pivot flags {pivot_stance} structure with open interest at {market['open_interest']:.0f} "
-                f"and volatility regime {indicators['volatility_regime']}."
+                f"(notional {open_interest_notional:.0f}), mark/index {mark_price:.2f}/{index_price:.2f}, "
+                f"funding {funding_rate_pct:+.4f}% and volatility regime {indicators['volatility_regime']}."
             ),
         },
         "reality_check": {

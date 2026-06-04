@@ -95,7 +95,17 @@ class RecordingAsyncClient:
                     [2, "68350", "68950", "68220", "68420.5", "1399"],
                 ]
             )
-        return DummyResponse({"openInterest": "9215000000"})
+        if "openInterest" in url:
+            return DummyResponse({"openInterest": "9215000000"})
+        return DummyResponse(
+            {
+                "markPrice": "68435.2",
+                "indexPrice": "68412.8",
+                "estimatedSettlePrice": "68430.0",
+                "lastFundingRate": "0.0001",
+                "nextFundingTime": 1712131200000,
+            }
+        )
 
 
 class FailingAsyncClient:
@@ -191,6 +201,15 @@ class BinanceClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("4h", payload["timeframe"])
         self.assertEqual(2, len(payload["candles"]))
         self.assertEqual(68420.5, payload["last_price"])
+        self.assertEqual(68435.2, payload["mark_price"])
+        self.assertEqual(68412.8, payload["index_price"])
+        self.assertEqual(68430.0, payload["estimated_settle_price"])
+        self.assertEqual(0.0001, payload["funding_rate"])
+        self.assertEqual(0.01, payload["funding_rate_pct"])
+        self.assertEqual(0.0327, payload["basis_pct"])
+        self.assertEqual(1712131200000, payload["next_funding_time"])
+        self.assertEqual(630630368000000.0, payload["open_interest_notional"])
+        self.assertEqual(4, len(RecordingAsyncClient.calls))
 
     async def test_fetch_live_failure_includes_proxy_and_endpoint_context(self) -> None:
         temp_dir = tempfile.TemporaryDirectory()
