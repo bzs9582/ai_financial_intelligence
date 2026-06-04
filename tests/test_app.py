@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
@@ -21,12 +22,19 @@ def build_settings(temp_dir: tempfile.TemporaryDirectory[str]) -> AppSettings:
 
 
 class AppRouteTests(unittest.IsolatedAsyncioTestCase):
+    GENERATED_AT_PATTERN = re.compile(r"Generated at ([^<]+)</p>")
+
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.app = create_app(build_settings(self.temp_dir))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def extract_generated_at(self, html: str) -> str:
+        match = self.GENERATED_AT_PATTERN.search(html)
+        self.assertIsNotNone(match)
+        return str(match.group(1))
 
     async def test_home_page_renders_form_and_empty_state(self) -> None:
         transport = httpx.ASGITransport(app=self.app)
@@ -63,9 +71,48 @@ class AppRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("空头逻辑", response.text)
         self.assertIn("情景概率分布", response.text)
         self.assertIn("失效条件", response.text)
+        self.assertIn("Binance market", response.text)
+        self.assertIn("FRED macro", response.text)
+        self.assertIn("Event feed", response.text)
+        self.assertEqual(3, response.text.count('class="status-item"'))
+        self.assertEqual(
+            3,
+            response.text.count("Mock mode enabled; using local fixture data."),
+        )
         self.assertIn("仅供研究参考，不构成投资建议", response.text)
+        generated_at = self.extract_generated_at(response.text)
         self.assertIn("Recent Analysis", follow_up.text)
         self.assertIn("BTCUSDT / 4h", follow_up.text)
+        self.assertIn(f"Updated at {generated_at}", follow_up.text)
+        self.assertIn("Source modes: fixture, fixture, fixture", follow_up.text)
+
+    async def test_invalid_request_keeps_latest_report_visible(self) -> None:
+        transport = httpx.ASGITransport(app=self.app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            valid_response = await client.post(
+                "/analyze",
+                data={"asset": "ETHUSDT", "timeframe": "1d"},
+            )
+            invalid_response = await client.post(
+                "/analyze",
+                data={"asset": "DOGEUSDT", "timeframe": "4h"},
+            )
+            follow_up = await client.get("/")
+
+        self.assertEqual(200, valid_response.status_code)
+        self.assertEqual(400, invalid_response.status_code)
+        self.assertIn("Unsupported asset: DOGEUSDT", invalid_response.text)
+        self.assertIn("Recent Analysis", invalid_response.text)
+        self.assertIn("ETHUSDT / 1d", invalid_response.text)
+        self.assertIn("Source modes: fixture, fixture, fixture", invalid_response.text)
+        generated_at = self.extract_generated_at(valid_response.text)
+        self.assertIn(f"Updated at {generated_at}", invalid_response.text)
+        self.assertIn("ETHUSDT / 1d", follow_up.text)
+        self.assertIn(f"Updated at {generated_at}", follow_up.text)
+        self.assertNotIn("DOGEUSDT / 4h", follow_up.text)
 
 
 if __name__ == "__main__":
